@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "weight_policy": {
+    "version": 1,
+    "basis": "business_priority",
+    "core_min_share": 0.5
+  },
+  "gate_tests": [
+    "test_outputs.py::test_gate_model_is_physical_and_fits_samples"
+  ],
+  "tests": {
+    "test_outputs.py::test_irregular_trace_recovers_five_parameters": {
+      "weight": 0.20,
+      "priority": "core",
+      "rationale": "五个连续参数共同决定振动台下一轮扫频，任何单项错估都会破坏外推。"
+    },
+    "test_outputs.py::test_query_predictions_follow_fitted_decay": {
+      "weight": 0.20,
+      "priority": "core",
+      "rationale": "只拟合样本还不够，查询点必须按恢复出的解析模型给出可用运动预测。"
+    },
+    "test_outputs.py::test_energy_ratio_uses_one_period_dissipation": {
+      "weight": 0.20,
+      "priority": "core",
+      "rationale": "一周期机械能保留比例是夹具可靠性的核心物理量，不能由首末振幅近似。"
+    },
+    "test_outputs.py::test_noise_above_floor_is_refused_without_output": {
+      "weight": 0.06,
+      "priority": "boundary",
+      "rationale": "超出残差门槛仍输出模型会把碰撞噪声误当成可外推的物理响应。"
+    },
+    "test_outputs.py::test_twelve_samples_at_public_lower_bound_are_accepted": {
+      "weight": 0.06,
+      "priority": "boundary",
+      "rationale": "公开最少样本数必须能可靠反演，否则短记录场景无法使用该工具。"
+    },
+    "test_outputs.py::test_eleven_samples_are_refused": {
+      "weight": 0.06,
+      "priority": "schema",
+      "rationale": "少于公开样本下限时参数不可辨识，提前拒绝可避免虚假高置信结果。"
+    },
+    "test_outputs.py::test_duplicate_sample_time_is_refused": {
+      "weight": 0.07,
+      "priority": "schema",
+      "rationale": "重复时间破坏采样顺序与运动学解释，必须在拟合前识别为坏记录。"
+    },
+    "test_outputs.py::test_equal_damping_and_omega_is_refused_without_output": {
+      "weight": 0.03,
+      "priority": "boundary",
+      "rationale": "阻尼率等于频率已超出公开欠阻尼模型，必须拒绝而不能发布临界参数。"
+    },
+    "test_outputs.py::test_success_output_is_canonical_and_silent": {
+      "weight": 0.05,
+      "priority": "supporting",
+      "rationale": "实验控制系统按字节接收参数，稳定序列化避免同一模型产生版本噪声。"
+    },
+    "test_outputs.py::test_cli_argument_arity_contract": {
+      "weight": 0.07,
+      "priority": "recovery",
+      "rationale": "批处理误调用时明确拒绝，防止空模型覆盖上一轮有效标定结果。"
+    }
+  }
+}
