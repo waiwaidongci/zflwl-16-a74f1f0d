@@ -11,6 +11,10 @@ from typing import Any
 
 
 INPUT_KEYS = {"schema", "samples", "queries", "noise_floor"}
+DAMPING_MIN = 0.0
+DAMPING_MAX = 1.5
+OMEGA_MIN = 0.1
+OMEGA_MAX = 4.0
 
 
 class Refused(ValueError):
@@ -135,9 +139,9 @@ def recover(
 ) -> dict[str, Any]:
     best: tuple[float, float, float, tuple[float, float, float]] | None = None
     for alpha_index in range(61):
-        damping = 1.5 * alpha_index / 60
+        damping = DAMPING_MIN + (DAMPING_MAX - DAMPING_MIN) * alpha_index / 60
         for omega_index in range(391):
-            omega = 0.1 + (3.9 * omega_index / 390)
+            omega = OMEGA_MIN + (OMEGA_MAX - OMEGA_MIN) * omega_index / 390
             if damping >= omega:
                 continue
             sse, coefficients = _linear_fit(times, values, damping, omega)
@@ -152,9 +156,15 @@ def recover(
         center_damping = best[1]
         center_omega = best[2]
         for damping_index in range(-4, 5):
-            damping = max(0.0, center_damping + damping_index * step_damping)
+            damping = min(
+                DAMPING_MAX,
+                max(DAMPING_MIN, center_damping + damping_index * step_damping),
+            )
             for omega_index in range(-4, 5):
-                omega = max(0.11, center_omega + omega_index * step_omega)
+                omega = min(
+                    OMEGA_MAX,
+                    max(OMEGA_MIN, center_omega + omega_index * step_omega),
+                )
                 if damping >= omega:
                     continue
                 sse, coefficients = _linear_fit(times, values, damping, omega)

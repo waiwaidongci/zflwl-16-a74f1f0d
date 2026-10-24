@@ -34,9 +34,10 @@
 
 `x(t) = offset + amplitude * exp(-damping_rate*t) * cos(omega*t + phase)`。
 
-其中 `amplitude` 大于零，`damping_rate` 不小于零且小于 `omega`，`omega` 大于零，
-`phase` 放在 `(-pi, pi]`，`offset` 为有限数值。模型在全部样本上的均方根残差不能超过
-`noise_floor`；超过时说明采样不属于这条可接受模型，应拒绝而不应猜测参数。
+其中 `amplitude` 大于零，`damping_rate` 位于 `[0, 1.5]`，`omega` 位于 `[0.1, 4.0]`，
+且必须满足 `damping_rate < omega`；这些闭区间就是本题公开的参数搜索范围。`phase` 放在
+`(-pi, pi]`，`offset` 为有限数值。模型在全部样本上的均方根残差不能超过 `noise_floor`；
+超过时说明采样不属于这条可接受模型，应拒绝而不应猜测参数。
 
 一个完整自由振荡周期后的机械能保留比例为
 `exp(-4*pi*damping_rate/omega)`。该比例只由衰减率和角频率决定，不能拿样本首末振幅

@@ -10,17 +10,17 @@
   ],
   "tests": {
     "test_outputs.py::test_irregular_trace_recovers_five_parameters": {
-      "weight": 0.20,
+      "weight": 0.18,
       "priority": "core",
       "rationale": "五个连续参数共同决定振动台下一轮扫频，任何单项错估都会破坏外推。"
     },
     "test_outputs.py::test_query_predictions_follow_fitted_decay": {
-      "weight": 0.20,
+      "weight": 0.18,
       "priority": "core",
       "rationale": "只拟合样本还不够，查询点必须按恢复出的解析模型给出可用运动预测。"
     },
     "test_outputs.py::test_energy_ratio_uses_one_period_dissipation": {
-      "weight": 0.20,
+      "weight": 0.18,
       "priority": "core",
       "rationale": "一周期机械能保留比例是夹具可靠性的核心物理量，不能由首末振幅近似。"
     },
@@ -55,9 +55,24 @@
       "rationale": "实验控制系统按字节接收参数，稳定序列化避免同一模型产生版本噪声。"
     },
     "test_outputs.py::test_cli_argument_arity_contract": {
-      "weight": 0.07,
+      "weight": 0.04,
       "priority": "recovery",
       "rationale": "批处理误调用时明确拒绝，防止空模型覆盖上一轮有效标定结果。"
+    },
+    "test_outputs.py::test_public_parameter_lower_bounds_are_accepted": {
+      "weight": 0.03,
+      "priority": "boundary",
+      "rationale": "阻尼零点和角频率公开下界必须可反演，避免把合法慢速无衰减记录误拒。"
+    },
+    "test_outputs.py::test_public_parameter_upper_bounds_are_accepted": {
+      "weight": 0.03,
+      "priority": "boundary",
+      "rationale": "阻尼与角频率的公开上界必须进入同一搜索域，保证题面和参考解一致。"
+    },
+    "test_outputs.py::test_parameters_outside_public_domain_are_refused": {
+      "weight": 0.03,
+      "priority": "boundary",
+      "rationale": "低于下界或高于上界的响应不符合公开模型，必须在残差门禁前拒收。"
     }
   }
 }

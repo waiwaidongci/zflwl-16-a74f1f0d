@@ -10,12 +10,22 @@ from pathlib import Path
 
 ENTRY = os.environ.get("OSCILLATOR_ENTRY", "/app/identify.py")
 
+SAFE_ENV = {
+    "PATH": "/usr/bin:/bin",
+    "HOME": "/tmp",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONHASHSEED": "0",
+}
+
 
 def _run(payload: Path, output: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, ENTRY, str(payload), str(output)],
+        [sys.executable, "-S", "-P", "-B", ENTRY, str(payload), str(output)],
         text=True,
         capture_output=True,
+        env=SAFE_ENV,
         timeout=30,
         check=False,
     )
@@ -92,6 +102,28 @@ def _second_payload() -> dict[str, object]:
         ],
         "queries": [0.25, 2.5, 7.75, 14.0],
         "noise_floor": 0.000001,
+    }
+
+
+def _parameter_payload(
+    parameters: dict[str, float],
+    *,
+    sample_count: int = 32,
+    end_time: float = 18.0,
+    noise_floor: float = 0.000000001,
+) -> dict[str, object]:
+    times = [
+        round(end_time * index / (sample_count - 1), 9)
+        for index in range(sample_count)
+    ]
+    return {
+        "schema": "damped-trace-v1",
+        "samples": [
+            {"t": time, "x": round(_response(parameters, time), 12)}
+            for time in times
+        ],
+        "queries": [0.0, round(end_time / 3.0, 6), round(end_time, 6)],
+        "noise_floor": noise_floor,
     }
 
 
@@ -172,6 +204,90 @@ def test_energy_ratio_uses_one_period_dissipation(tmp_path: Path) -> None:
     assert abs(result["energy_ratio"] - 0.621584) < 0.000001
     assert abs(result["model"]["phase"] + 1.1) < 0.00001
     assert abs(result["model"]["offset"] + 0.2) < 0.00001
+
+
+def test_public_parameter_lower_bounds_are_accepted(tmp_path: Path) -> None:
+    """题面：
+    「`damping_rate` 位于 `[0, 1.5]`，`omega` 位于 `[0.1, 4.0]`」
+    """
+
+    # case_id: OS-BOUND-04
+    parameters = {
+        "amplitude": 1.5,
+        "damping_rate": 0.0,
+        "omega": 0.1,
+        "phase": 0.25,
+        "offset": 0.4,
+    }
+    source = tmp_path / "lower-bounds.json"
+    output = tmp_path / "lower-bounds.out.json"
+    _write(source, _parameter_payload(parameters, end_time=36.0))
+    completed = _run(source, output)
+    result = json.loads(output.read_text(encoding="utf-8"))
+    assert completed.returncode == 0
+    assert abs(result["model"]["damping_rate"]) < 0.00001
+    assert abs(result["model"]["omega"] - 0.1) < 0.00001
+    assert abs(result["energy_ratio"] - 1.0) < 0.000001
+
+
+def test_public_parameter_upper_bounds_are_accepted(tmp_path: Path) -> None:
+    """题面：
+    「`damping_rate` 位于 `[0, 1.5]`，`omega` 位于 `[0.1, 4.0]`」
+    """
+
+    # case_id: OS-BOUND-05
+    parameters = {
+        "amplitude": 2.0,
+        "damping_rate": 1.5,
+        "omega": 4.0,
+        "phase": 0.3,
+        "offset": -0.1,
+    }
+    source = tmp_path / "upper-bounds.json"
+    output = tmp_path / "upper-bounds.out.json"
+    _write(source, _parameter_payload(parameters, sample_count=48, end_time=6.0))
+    completed = _run(source, output)
+    result = json.loads(output.read_text(encoding="utf-8"))
+    assert completed.returncode == 0
+    assert abs(result["model"]["damping_rate"] - 1.5) < 0.00001
+    assert abs(result["model"]["omega"] - 4.0) < 0.00001
+
+
+def test_parameters_outside_public_domain_are_refused(tmp_path: Path) -> None:
+    """题面：
+    「超过时说明采样不属于这条可接受模型，应拒绝而不应猜测参数」
+    """
+
+    # case_id: OS-BOUND-06 OS-BOUND-07 OS-BOUND-08 OS-BOUND-09 OS-RANGE-01 OS-RANGE-02
+    cases = [
+        ("negative-damping", -0.05, 1.2, 20.0),
+        ("damping-above-cap", 1.6, 2.0, 8.0),
+        ("omega-below-floor", 0.0, 0.05, 120.0),
+        ("omega-above-cap", 0.05, 4.1, 10.0),
+    ]
+    for name, damping, omega, end_time in cases:
+        parameters = {
+            "amplitude": 1.8,
+            "damping_rate": damping,
+            "omega": omega,
+            "phase": 0.2,
+            "offset": 0.1,
+        }
+        source = tmp_path / f"{name}.json"
+        output = tmp_path / f"{name}.out.json"
+        _write(
+            source,
+            _parameter_payload(
+                parameters,
+                sample_count=48,
+                end_time=end_time,
+                noise_floor=0.0000000001,
+            ),
+        )
+        completed = _run(source, output)
+        assert completed.returncode == 2, name
+        assert completed.stderr.startswith("REFUSED: "), name
+        assert not output.exists(), name
 
 
 def test_noise_above_floor_is_refused_without_output(tmp_path: Path) -> None:
@@ -303,9 +419,10 @@ def test_cli_argument_arity_contract(tmp_path: Path) -> None:
     output = tmp_path / "cli-arity.out.json"
     _write(source, _trace_payload())
     completed = subprocess.run(
-        [sys.executable, ENTRY, str(source), str(output), "extra"],
+        [sys.executable, "-S", "-P", "-B", ENTRY, str(source), str(output), "extra"],
         text=True,
         capture_output=True,
+        env=SAFE_ENV,
         timeout=10,
         check=False,
     )
