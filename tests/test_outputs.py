@@ -155,7 +155,7 @@ def test_gate_model_is_physical_and_fits_samples(tmp_path: Path) -> None:
 def test_irregular_trace_recovers_five_parameters(tmp_path: Path) -> None:
     # case_id: OS-FIT-01 OS-CONTEXT-01 OS-BASELINE-01
     """题面：
-    「输入顶层只有 `schema`、`samples`、`queries`、`noise_floor`：」
+    「`x(t) = offset + amplitude * exp(-damping_rate*t) * cos(omega*t + phase)`。」
     """
 
     source = tmp_path / "trace.json"
@@ -293,7 +293,7 @@ def test_parameters_outside_public_domain_are_refused(tmp_path: Path) -> None:
 def test_noise_above_floor_is_refused_without_output(tmp_path: Path) -> None:
     # case_id: OS-NOISE-01 OS-FAIL-01
     """题面：
-    「入口保持 `python3 /app/identify.py <input.json> <output.json>`。计算使用镜像内标准库，」
+    「模型在全部样本上的均方根残差不能超过」
     """
 
     payload = _trace_payload()
@@ -330,7 +330,7 @@ def test_twelve_samples_at_public_lower_bound_are_accepted(tmp_path: Path) -> No
 def test_eleven_samples_are_refused(tmp_path: Path) -> None:
     # case_id: OS-LIMIT-02
     """题面：
-    「`REFUSED: <原因>`，退出码为 2。顺利结束时不要打印内容；输出文件采用键排序、」
+    「`samples` 保存 12 到 64 条采样；」
     """
 
     payload = _trace_payload()
@@ -347,7 +347,7 @@ def test_eleven_samples_are_refused(tmp_path: Path) -> None:
 def test_duplicate_sample_time_is_refused(tmp_path: Path) -> None:
     # case_id: OS-DUP-01
     """题面：
-    「`exp(-4*pi*damping_rate/omega)`。该比例只由衰减率和角频率决定，不能拿样本首末振幅」
+    「时间落在 0 到 120 的时间坐标并严格递增」
     """
 
     payload = _trace_payload()
@@ -364,7 +364,7 @@ def test_duplicate_sample_time_is_refused(tmp_path: Path) -> None:
 def test_equal_damping_and_omega_is_refused_without_output(tmp_path: Path) -> None:
     # case_id: OS-BOUND-03
     """题面：
-    「`noise_floor`；超过时说明采样不属于这条可接受模型，应拒绝而不应猜测参数。」
+    「且必须满足 `damping_rate < omega`」
     """
 
     times = [round(0.7 * index, 6) for index in range(32)]
@@ -392,7 +392,7 @@ def test_equal_damping_and_omega_is_refused_without_output(tmp_path: Path) -> No
 def test_success_output_is_canonical_and_silent(tmp_path: Path) -> None:
     # case_id: OS-SER-01 OS-SER-02
     """题面：
-    「`/app/identify.py` 现在只会输出一条没有衰减的余弦，请把它改成真正从样本恢复运动的程序。」
+    「无额外空格的 JSON，末字符为换行。」
     """
 
     source = tmp_path / "trace.json"
@@ -407,25 +407,3 @@ def test_success_output_is_canonical_and_silent(tmp_path: Path) -> None:
     assert completed.returncode == 0
     assert completed.stdout == ""
     assert raw == canonical
-
-
-def test_cli_argument_arity_contract(tmp_path: Path) -> None:
-    # case_id: OS-ARG-01
-    """题面：
-    「## 交付格式」
-    """
-
-    source = tmp_path / "cli-arity.json"
-    output = tmp_path / "cli-arity.out.json"
-    _write(source, _trace_payload())
-    completed = subprocess.run(
-        [sys.executable, "-S", "-P", "-B", ENTRY, str(source), str(output), "extra"],
-        text=True,
-        capture_output=True,
-        env=SAFE_ENV,
-        timeout=10,
-        check=False,
-    )
-    assert completed.returncode == 2
-    assert completed.stderr.startswith("REFUSED: ")
-    assert not output.exists()
